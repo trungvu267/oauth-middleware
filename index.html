@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OAuth Redirect Handler</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f5f5f5;
+        }
+        .container {
+            text-align: center;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            max-width: 80%;
+        }
+        .loading {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        #error {
+            color: #e74c3c;
+            margin-top: 10px;
+            display: none;
+            word-break: break-word;
+        }
+        #debug {
+            margin-top: 20px;
+            text-align: left;
+            display: none;
+            font-size: 12px;
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="loading"></div>
+        <h2>Đang chuyển hướng về ứng dụng...</h2>
+		<p id="app_scheme"></p>
+        <p id="error"></p>
+        <div id="debug"></div>
+    </div>
+
+    <script>
+        // Thời gian timeout (ms)
+        const TIMEOUT_DURATION = 5000;
+        // Debug mode flag
+        const DEBUG_MODE = false;
+
+        function getQueryParams() {
+            const queryParams = {};
+            const search = window.location.search.substring(1);
+            const pairs = search.split('&');
+            
+            for (let pair of pairs) {
+                const [key, value] = pair.split('=');
+                if (key && value) {
+                    queryParams[decodeURIComponent(key)] = decodeURIComponent(value);
+                }
+            }
+            
+            return queryParams;
+        }
+
+        function showError(message) {
+            const errorElement = document.getElementById('error');
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+        }
+
+		function showAppScheme(message) {
+            const AppSchemeElement = document.getElementById('app_scheme');
+            AppSchemeElement.textContent = message;
+            AppSchemeElement.style.display = 'block';
+        }
+
+        function showDebugInfo(params, appScheme) {
+            if (!DEBUG_MODE) return;
+            
+            const debugElement = document.getElementById('debug');
+            debugElement.style.display = 'block';
+            debugElement.innerHTML = `
+                <strong>Debug Info:</strong><br>
+                App Scheme: ${appScheme}<br>
+                Parameters: ${JSON.stringify(params, null, 2)}
+            `;
+        }
+
+        function redirectToApp() {
+            try {
+                const params = getQueryParams();
+                
+                // Lấy app_scheme từ URL hoặc dùng giá trị mặc định
+                const appScheme = params.app_scheme || params.appScheme || 'myapp://profile';
+                
+                // Xoá app_scheme từ params để không đưa vào deep link
+                delete params.app_scheme;
+                delete params.appScheme;
+
+                // Kiểm tra các tham số bắt buộc
+                // if (!params.token && !params.code) {
+                //     throw new Error('Không tìm thấy token hoặc authorization code');
+                // }
+
+                // Tạo URL để deep link vào app
+                const queryString = Object.entries(params)
+                    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+                    .join('&');
+                
+                // const deepLink = `${appScheme}://oauth-callback?${queryString}`;
+
+                // Hiển thị thông tin debug nếu cần
+                showDebugInfo(params, appScheme);
+
+				showAppScheme(appScheme);
+                // Thêm timeout để xử lý trường hợp app không được cài đặt
+                setTimeout(() => {
+                    showError('Không thể mở ứng dụng. Vui lòng đảm bảo ứng dụng đã được cài đặt.');
+                }, TIMEOUT_DURATION);
+
+                // Chuyển hướng về app
+                window.location.href = appScheme;
+
+            } catch (error) {
+                showError(`Đã xảy ra lỗi: ${error.message}`);
+            }
+        }
+
+        // Thực thi khi trang được load
+        window.onload = redirectToApp;
+    </script>
+</body>
+</html>
